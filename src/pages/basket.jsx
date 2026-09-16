@@ -1,0 +1,292 @@
+import axios from 'axios'
+import { useState } from 'react'
+import { BsBagHeart } from 'react-icons/bs'
+import { toast } from 'sonner'
+import noImage from '../assets/no-photo.jpg'
+import CommentModal from '../components/CommentModal'
+import ErrorModal from '../components/ErrorModal'
+import PaymentModal from '../components/PaymentModal'
+import useAddBasket from '../hooks/useAddBasket'
+import useBasket from '../hooks/useBasket'
+import useOrder from '../hooks/useOrder'
+import { getUserId } from '../lib/auth'
+import { resolveDisplayPrice } from '../lib/pricing'
+
+const Basket = () => {
+
+	const [showCommentModal, setShowCommentModal] = useState(false)
+	const [showPaymentModal, setShowPaymentModal] = useState(false)
+	const [showErrorModal, setShowErrorModal] = useState(false)
+	const [comment, setComment] = useState('')
+	const [submitting, setSubmitting] = useState(false)
+
+	const { basket, setBasket, clearBasket } = useBasket()
+	const { createOrder } = useOrder()
+	const { counts, updateQuantity } = useAddBasket()
+
+	const handleConfirmOrder = async paymentType => {
+		if (!basket.length) return
+
+		const generateUuidFallback = () => {
+			if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+				return crypto.randomUUID()
+			}
+
+			return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => {
+				const random = Math.random() * 16 | 0
+				const value = char === 'x' ? random : (random & 0x3 | 0x8)
+				return value.toString(16)
+			})
+		}
+
+		// Sending USD-priced lines in their own native currency was tried four different ways
+		// (saleType='val', saleType='sum' with per-line currency, an order-level currency
+		// field, computed paymentSum/paymentVal) — every one of them still landed the whole
+		// order under 1C's "Jami. so'm" with "Jami. val" blank, so whatever "Jami. val" keys
+		// off isn't reachable from this payload. Falling back to what already reliably works:
+		// convert every line to so'm before submitting (item.price/oldPrice/currency are
+		// always the UZS-converted display values from useAddBasket.jsx) so the order total
+		// so'm figure is at least correct, instead of a dollar amount stranded under so'm.
+		const products = basket.map(item => {
+			const productId = item.productId || item.Id || item.id;
+			const quantity = counts[productId]?.count || 0;
+			const rawPriceFallback = item.price == null && Array.isArray(item.prices) ? resolveDisplayPrice(item) : null;
+			const price = Number(item.price ?? rawPriceFallback?.price ?? 0);
+			const measure = item.measures?.[0] || item.measure || { id: '09fda8fe-6098-11f0-9fee-b48c9d79c2ce', name: 'шт' };
+
+			return {
+				product: {
+					id: productId,
+					name: item.name || item.productName || 'Mahsulot',
+				},
+				bundleItems: [],
+				quantities: [
+					{
+						stock: { id: '09fda8f3-6098-11f0-9fee-b48c9d79c2ce', name: 'Asosiy sklad' },
+						quantity,
+						measure: {
+							name: measure.name || 'шт',
+							id: measure.Id || measure.id || '09fda8fe-6098-11f0-9fee-b48c9d79c2ce',
+						},
+						remainder: 0,
+						amount: Number((quantity * price).toFixed(4)),
+					},
+				],
+				price: Number(price.toFixed(4)),
+				oldPrice: Number((item.oldPrice ?? rawPriceFallback?.oldPrice ?? price).toFixed(4)),
+				currency: {
+					name: item.currencyName || rawPriceFallback?.currency?.name || 'UZS',
+					id: item.currencyId || rawPriceFallback?.currency?.id || '',
+				},
+			};
+		})
+
+		const orderData = {
+			userId: String(getUserId() || ''),
+			UUID: generateUuidFallback(),
+			comment: comment?.trim() || '',
+			saleType: 'sum',
+			products,
+		}
+
+		if (submitting) return
+		setSubmitting(true)
+		try {
+			if (paymentType === 'click') {
+				const amount = basket.reduce(
+					(acc, item) => acc + item.price * (counts[item.Id]?.count || 0),
+					0,
+				)
+
+				const CLICK_PAYMENT_URL = import.meta.env.VITE_CLICK_PAYMENT_URL || 'https://clickpayment-production.up.railway.app/api/click/create-payment'
+				const res = await axios.post(CLICK_PAYMENT_URL, { order_id: orderData.UUID, amount })
+
+				if (res.data?.success && res.data?.paymentUrl) {
+					window.location.href = res.data.paymentUrl
+					return
+				} else {
+					toast.error("To'lov havolasi topilmadi, qayta urinib ko'ring", {
+						style: {
+							background: '#ef4444',
+							color: '#fff',
+							fontWeight: 'bold',
+							borderRadius: '12px',
+							padding: '16px 24px',
+							fontSize: '16px',
+						},
+					})
+					return
+				}
+			}
+
+			await createOrder(orderData)
+
+			clearBasket()
+			setShowPaymentModal(false)
+			setShowCommentModal(false)
+
+			toast.success('Buyurtma qabul qilindi!', {
+				style: {
+					background: '#22c55e',
+					color: '#fff',
+					fontWeight: 'bold',
+					borderRadius: '12px',
+					padding: '16px 24px',
+					fontSize: '16px',
+				},
+			})
+		} catch (err) {
+			setShowErrorModal(true)
+			setShowPaymentModal(false)
+			const backendMessage = Array.isArray(err?.response?.data?.errorMessage)
+				? err.response.data.errorMessage.join('; ')
+				: err?.response?.data?.errorMessage
+			toast.error(backendMessage || "Buyurtma yuborishda muammo yuz berdi, qayta urinib ko'ring", {
+				style: {
+					background: '#ef4444',
+					color: '#fff',
+					fontWeight: 'bold',
+					borderRadius: '12px',
+					padding: '16px 24px',
+					fontSize: '16px',
+				},
+			})
+		} finally {
+			setSubmitting(false)
+		}
+	}
+
+	return (
+		<div className='px-3 xl:px-10 py-24'>
+			<h2 className='text-3xl font-bold'>Savat</h2>
+
+			{basket.length === 0 ? (
+				<div className='max-w-xl mx-auto py-20 bg-gray-100 rounded-lg flex flex-col items-center mt-5 dark:bg-gray-800'>
+					<BsBagHeart className='text-5xl text-[rgb(22,113,98)] mb-3' />
+					<p className='text-lg text-gray-600 dark:text-gray-200'>
+						Sizning savatingiz bo'sh.
+					</p>
+				</div>
+			) : (
+				<div className='mt-5 mb-10 grid md:grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4'>
+					{basket.map(item => (
+						<div
+							key={item.productId}
+							className='flex items-center gap-4 bg-white rounded-xl shadow-md px-2 py-2 border dark:bg-gray-800'
+						>
+							<div className='rounded-xl h-full w-24'>
+								<img
+									src={item.image || noImage}
+									alt={
+										(item.name || '').length > 20
+											? (item.name || '').slice(0, 20) + '…'
+											: (item.name || '')
+									}
+									className='w-full aspect-square object-contain rounded-xl'
+								/>
+							</div>
+							<div className='w-2/3'>
+								<p className='text-sm font-bold text-black h-[40px] max-h-[40px] dark:text-white'>
+									{(item.name || '').length > 48
+										? (item.name || '').slice(0, 48) + '…'
+										: (item.name || '')}
+								</p>
+								<div className='flex items-end justify-between'>
+									<div className='w-full'>
+										<div className='flex items-center justify-between w-full'>
+											<p className='text-sm font-bold mt-1 text-[rgb(165,150,225)]'>
+												{item.price != null
+													? `${Number(item.price)
+															.toLocaleString('fr-FR', { maximumFractionDigits: 4 })
+															.replace(/\s/g, ' ')} so'm`
+													: 'Narx belgilanmagan'}
+											</p>
+											<div className='flex justify-between items-center gap-2 mt-2'>
+												<button
+													onClick={() => {
+														const newCount =
+															(counts[item.productId]?.count || 0) - 1
+														if (newCount <= 0) {
+															const updatedBasket = basket.filter(
+																b => b.productId !== item.productId,
+															)
+															setBasket(updatedBasket)
+															updateQuantity(item, 0)
+														} else {
+															updateQuantity(item, newCount)
+														}
+													}}
+													className='px-2 bg-[rgb(141,119,229)] rounded text-white dark:bg-opacity-50'
+												>
+													−
+												</button>
+												<button
+													onClick={() =>
+														updateQuantity(
+															item,
+															(counts[item.productId]?.count || 0) + 1,
+														)
+													}
+													className='px-2 bg-[rgb(141,119,229)] rounded text-white dark:bg-opacity-50'
+												>
+													+
+												</button>
+											</div>
+										</div>
+										<div className='flex justify-between w-full'>
+											<p className='text-gray-500 mt-1 text-sm dark:text-gray-300'>
+												Miqdori:{' '}
+												<span className='text-[rgb(165,150,255)]'>
+													{counts[item.productId]?.count || 0}
+												</span>
+											</p>
+											<p className='text-gray-500 mt-1 text-sm dark:text-gray-300'>
+												Summa:{' '}
+												{item.price != null
+													? Number(
+															(counts[item.productId]?.count || 0) * item.price,
+													  )
+															.toLocaleString('fr-FR', { maximumFractionDigits: 4 })
+															.replace(/\s/g, ' ')
+													: 'Narx belgilanmagan'}
+											</p>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					))}
+				</div>
+			)}
+
+			{basket.length > 0 && (
+				<button
+					onClick={() => setShowCommentModal(true)}
+					className='bg-[rgb(141,119,229)] w-80 py-2 text-white mx-auto rounded-md fixed bottom-20 right-0 left-0'
+				>
+					Buyurtma berish
+				</button>
+			)}
+
+			<CommentModal
+				showCommentModal={showCommentModal}
+				setShowCommentModal={setShowCommentModal}
+				comment={comment}
+				setComment={setComment}
+				setShowPaymentModal={setShowPaymentModal}
+				basket={basket}
+				counts={counts}
+			/>
+
+			<PaymentModal
+				showPaymentModal={showPaymentModal}
+				setShowPaymentModal={setShowPaymentModal}
+				handleConfirmOrder={handleConfirmOrder}
+			/>
+
+			{showErrorModal && <ErrorModal setShowErrorModal={setShowErrorModal} />}
+		</div>
+	)
+}
+
+export default Basket

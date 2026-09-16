@@ -1,0 +1,66 @@
+import { useEffect, useState, useCallback } from "react";
+import api from "../lib/api";
+
+export default function useProducts({
+  page = 1,
+  pageSize = 10,
+  userId,
+  categoryId,
+}) {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [registered, setRegistered] = useState(false);
+  // using centralized api client
+
+  const fetchProducts = useCallback(
+    async (signal) => {
+      if (!userId || !categoryId) return; // ❌ keraksiz requestni to‘xtatamiz
+      setLoading(true);
+      try {
+        // includeParents omitted: the backend throws a 400 ("приведение значения к типу
+        // Булево не может быть выполнено" — Boolean type conversion failure) whenever this
+        // endpoint is called with a category filter, unlike /catalogs/categories/images
+        // which accepts the same includeParents=false fine. Each 1C HTTP service endpoint
+        // defines its own parameter type schema, so this field may be typed differently
+        // (or unsupported) here specifically — dropping it as a first attempt at working
+        // around the server-side error.
+        const res = await api.get(`/catalogs/products/full`, {
+          params: {
+            page,
+            pageSize,
+            sortBy: 'code',
+            sortOrder: 'desc',
+            search: '',
+            parent: '',
+            userId,
+            ids: '',
+            categoriyIds: categoryId,
+          },
+          signal,
+        });
+        setRegistered(res.data?.data?.registered || false);
+        const productsData = res.data?.data?.content || [];
+        setProducts(productsData);
+        setError(null);
+      } catch (err) {
+        if (err.name !== "CanceledError") {
+          setError(err.message);
+        }
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [page, pageSize, userId, categoryId]
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchProducts(controller.signal);
+
+    return () => controller.abort(); // ✅ eski requestni to‘xtatish
+  }, [fetchProducts]);
+
+  return { products, loading, error , registered };
+}

@@ -1,0 +1,137 @@
+import React from 'react'
+import { createRoot } from 'react-dom/client'
+import Root from './router'
+import './index.css'
+import { loginViaTelegram, scheduleTokenRefreshForExistingToken } from './lib/api'
+import { decodeJwtPayload } from './lib/auth'
+import { fetchAppConfig } from './lib/appConfig'
+
+// A token with no readable "exp" claim is treated as usable (matches
+// scheduleTokenRefreshFromToken's own fallback in lib/api.js) — only one whose exp has
+// definitely passed counts as expired.
+function isTokenExpired(token) {
+  if (!token) return true
+  const payload = decodeJwtPayload(token)
+  if (typeof payload?.exp !== 'number') return false
+  const remainingSec = payload.exp - Math.floor(Date.now() / 1000)
+  return remainingSec <= 0
+}
+
+// Telegram WebApp tayyor bo'lishini kutish — loginViaTelegram() faqat xom `initData`
+// satridan foydalanadi, shuning uchun aynan shuni kutamiz (avval `initDataUnsafe.user.id`
+// — parse qilingan qulaylik uchun maydon — kutilardi, bu esa sekinroq qurilmalarda/WebView
+// sovuq ochilishida `initData`ning o'zidan ancha kech to'ldirilishi mumkin edi va login
+// keraksiz o'tkazib yuborilardi). userId hech qachon localStorage'ga saqlanmaydi, faqat
+// Telegramning o'zidan olinadi (device/hacked localStorage orqali boshqa foydalanuvchi
+// nomidan kirib bo'lmasligi uchun).
+function waitForTelegramReady(maxAttempts = 30, delayMs = 100) {
+  return new Promise((resolve) => {
+    let attempts = 0
+
+    function check() {
+      attempts++
+      const tg = window?.Telegram?.WebApp
+
+      if (tg?.initData) {
+        resolve(true)
+        return
+      }
+
+      if (attempts >= maxAttempts) {
+        resolve(false)
+        return
+      }
+
+      setTimeout(check, delayMs)
+    }
+
+    check()
+  })
+}
+
+// Ehtiyot chorasi: agar boot() dastlabki urinishda token ola olmasa (masalan, Telegram
+// initData yuqoridagi byudjetdan ham kechroq tayyor bo'lsa, yoki /api/login sovuq
+// ishga tushish/tarmoq xatosi tufayli birinchi safar muvaffaqiyatsiz tugasa), ilova
+// "ro'yxatdan o'tmagan" holatda tokensiz doim qolib ketmasin — fonda tinimsiz login
+// urinib turadi va muvaffaqiyatli bo'lsa, allaqachon (tokensiz) yuklangan sahifalarni
+// to'g'ri holatga qaytarish uchun BIR MARTA avtomatik reload qiladi — bu foydalanuvchi
+// qo'lda reload qilganda nima bo'lsa, xuddi o'shani o'zi avtomatik bajaradi.
+function scheduleAuthRecovery() {
+  if (localStorage.getItem('token')) return
+  if (sessionStorage.getItem('authRecoveryReloaded')) return
+
+  let attempts = 0
+  const maxAttempts = 30 // ~30 * 500ms = 15s qo'shimcha byudjet
+  const timer = setInterval(async () => {
+    attempts++
+
+    if (localStorage.getItem('token')) {
+      clearInterval(timer)
+      return
+    }
+
+    const tg = window?.Telegram?.WebApp
+    if (tg?.initData) {
+      try {
+        const res = await loginViaTelegram()
+        if (res?.token) {
+          clearInterval(timer)
+          sessionStorage.setItem('authRecoveryReloaded', '1')
+          window.location.reload()
+          return
+        }
+      } catch {
+        // ignore — the interval keeps retrying until maxAttempts
+      }
+    }
+
+    if (attempts >= maxAttempts) {
+      clearInterval(timer)
+    }
+  }, 500)
+}
+
+async function boot() {
+  try {
+    // Telegram WebApp'ni birinchi bo'lib tayyorlash
+    if (window?.Telegram?.WebApp) {
+      window.Telegram.WebApp.ready()
+      window.Telegram.WebApp.expand()
+    }
+
+    const existingToken = localStorage.getItem('token')
+    // An expired leftover token is worse than no token at all: rendering optimistically
+    // with it means the very first data requests (config, categories, ...) go out with a
+    // token the backend will reject — and, unlike the "no token" case below, nothing was
+    // awaiting a fresh login first to prevent that. Treat "expired" the same as "missing"
+    // so those requests go out with a token that's actually valid.
+    const needsFreshLogin = !existingToken || isTokenExpired(existingToken)
+
+    if (!needsFreshLogin) {
+      scheduleTokenRefreshForExistingToken()
+    }
+
+    const telegramReady = await waitForTelegramReady()
+
+    if (telegramReady && needsFreshLogin) {
+      await loginViaTelegram()
+    }
+  } catch {
+    // ignore — scheduleAuthRecovery() below keeps retrying in the background
+  }
+
+  // Warm the /config cache (USD→UZS rate + home page title/text) in the background —
+  // pricing.js and the home page read from this shared cache, but first paint shouldn't
+  // wait on it.
+  fetchAppConfig().catch(() => {})
+
+  // Safety net for the (rare) case the above still didn't get a token in time — see
+  // scheduleAuthRecovery's comment.
+  scheduleAuthRecovery()
+
+  createRoot(document.getElementById('root')).render(
+    <Root />
+  )
+}
+
+boot()
