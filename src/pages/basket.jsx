@@ -26,16 +26,25 @@ const Basket = () => {
 	const getTokenStock = () => {
 		const token = localStorage.getItem('token') || ''
 		const payload = decodeJwtPayload(token)
+		let jti = payload?.jti
+		if (typeof jti === 'string') {
+			try {
+				jti = JSON.parse(jti)
+			} catch {
+				jti = null
+			}
+		}
+
 		const candidates = [
 			payload?.stock,
 			payload?.warehouse,
 			payload?.sklad,
 			payload?.stockInfo,
 			payload?.stockData,
-			payload?.jti?.stock,
-			payload?.jti?.warehouse,
-			payload?.jti?.sklad,
-			payload?.jti?.stockInfo,
+			jti?.stock,
+			jti?.warehouse,
+			jti?.sklad,
+			jti?.stockInfo,
 		]
 
 		for (const candidate of candidates) {

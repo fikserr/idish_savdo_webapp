@@ -12,21 +12,30 @@ export function getTokenCurrencyId() {
   const token = localStorage.getItem('token') || ''
   const payload = decodeJwtPayload(token)
 
+  let jti = payload?.jti
+  if (typeof jti === 'string') {
+    try {
+      jti = JSON.parse(jti)
+    } catch {
+      jti = null
+    }
+  }
+
   const candidates = [
     payload?.currency,
     payload?.Currency,
     payload?.currencyInfo,
     payload?.currencyData,
     payload?.currencyObj,
-    payload?.jti?.currency,
-    payload?.jti?.Currency,
-    payload?.jti?.currencyInfo,
+    jti?.currency,
+    jti?.Currency,
+    jti?.currencyInfo,
     payload?.currencyId,
     payload?.currency_id,
     payload?.currencyID,
-    payload?.jti?.currencyId,
-    payload?.jti?.currency_id,
-    payload?.jti?.currencyID,
+    jti?.currencyId,
+    jti?.currency_id,
+    jti?.currencyID,
   ]
 
   for (const candidate of candidates) {
@@ -48,8 +57,8 @@ export function getTokenCurrencyId() {
     payload?.currency?.name ||
       payload?.Currency?.name ||
       payload?.currencyInfo?.name ||
-      payload?.jti?.currency?.name ||
-      payload?.jti?.currencyInfo?.name ||
+      jti?.currency?.name ||
+      jti?.currencyInfo?.name ||
       ''
   ).trim().toUpperCase()
 
