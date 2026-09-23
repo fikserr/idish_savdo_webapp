@@ -8,6 +8,56 @@ import { getUsdToUzsRate } from './appConfig'
 // resolveDisplayPrice's USD-fallback branch below).
 const UZS_CURRENCY_ID = '09fda8f8-6098-11f0-9fee-b48c9d79c2ce'
 
+export function getTokenCurrencyId() {
+  const token = localStorage.getItem('token') || ''
+  const payload = decodeJwtPayload(token)
+
+  const candidates = [
+    payload?.currency,
+    payload?.Currency,
+    payload?.currencyInfo,
+    payload?.currencyData,
+    payload?.currencyObj,
+    payload?.jti?.currency,
+    payload?.jti?.Currency,
+    payload?.jti?.currencyInfo,
+    payload?.currencyId,
+    payload?.currency_id,
+    payload?.currencyID,
+    payload?.jti?.currencyId,
+    payload?.jti?.currency_id,
+    payload?.jti?.currencyID,
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    const id =
+      candidate?.id ||
+      candidate?.Id ||
+      candidate?.ID ||
+      candidate?.currencyId ||
+      candidate?.currency_id ||
+      candidate?.currencyID ||
+      candidate?.value ||
+      ''
+
+    if (id) return String(id)
+  }
+
+  const name = String(
+    payload?.currency?.name ||
+      payload?.Currency?.name ||
+      payload?.currencyInfo?.name ||
+      payload?.jti?.currency?.name ||
+      payload?.jti?.currencyInfo?.name ||
+      ''
+  ).trim().toUpperCase()
+
+  return name === 'UZS' || name === 'SO\'M' || name === 'SOM' || name === 'SUM'
+    ? UZS_CURRENCY_ID
+    : UZS_CURRENCY_ID
+}
+
 // customer's assigned price tier (chakana/ulgurji/...) — decoded live from the JWT's
 // "jti" claim each time, same pattern as getContractorId() in auth.js
 export function getPriceTypeId() {

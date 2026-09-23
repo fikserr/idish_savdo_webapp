@@ -10,7 +10,7 @@ import useAddBasket from '../hooks/useAddBasket'
 import useBasket from '../hooks/useBasket'
 import useOrder from '../hooks/useOrder'
 import { getUserId } from '../lib/auth'
-import { resolveDisplayPrice } from '../lib/pricing'
+import { getTokenCurrencyId, resolveDisplayPrice } from '../lib/pricing'
 
 const Basket = () => {
 	const [showCommentModal, setShowCommentModal] = useState(false)
@@ -138,6 +138,7 @@ const Basket = () => {
 					id:
 						item.currencyId ||
 						rawPriceFallback?.currency?.id ||
+						getTokenCurrencyId() ||
 						'',
 				},
 			}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import api from "../lib/api";
 import { getUserId, decodeJwtPayload } from "../lib/auth";
-import { resolveDisplayPrice } from "../lib/pricing";
+import { getTokenCurrencyId, resolveDisplayPrice } from "../lib/pricing";
 import { getUsdToUzsRate } from "../lib/appConfig";
 
 const safeNumber = (value, fallback = 0) => {
@@ -176,7 +176,12 @@ function normalizeProduct(item, counts = {}, fallbackStock = { id: '', name: 'As
     oldPrice: Number(oldPrice.toFixed(4)),
     currency: {
       name: item.currencyName || item.currency?.name || rawPriceFallback?.currency?.name || 'UZS',
-      id: item.currencyId || item.currency?.id || rawPriceFallback?.currency?.id || '',
+      id:
+        item.currencyId ||
+        item.currency?.id ||
+        rawPriceFallback?.currency?.id ||
+        getTokenCurrencyId() ||
+        '',
     },
   };
 }
