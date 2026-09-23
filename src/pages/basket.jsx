@@ -9,7 +9,7 @@ import PaymentModal from '../components/PaymentModal'
 import useAddBasket from '../hooks/useAddBasket'
 import useBasket from '../hooks/useBasket'
 import useOrder from '../hooks/useOrder'
-import { getUserId } from '../lib/auth'
+import { decodeJwtPayload, getUserId } from '../lib/auth'
 import { getTokenCurrencyId, resolveDisplayPrice } from '../lib/pricing'
 
 const Basket = () => {
@@ -22,6 +22,36 @@ const Basket = () => {
 	const { basket, setBasket, clearBasket } = useBasket()
 	const { createOrder } = useOrder()
 	const { counts, updateQuantity } = useAddBasket()
+
+	const getTokenStock = () => {
+		const token = localStorage.getItem('token') || ''
+		const payload = decodeJwtPayload(token)
+		const candidates = [
+			payload?.stock,
+			payload?.warehouse,
+			payload?.sklad,
+			payload?.stockInfo,
+			payload?.stockData,
+			payload?.jti?.stock,
+			payload?.jti?.warehouse,
+			payload?.jti?.sklad,
+			payload?.jti?.stockInfo,
+		]
+
+		for (const candidate of candidates) {
+			if (!candidate) continue
+			const id = candidate?.id || candidate?.Id || candidate?.ID || ''
+			const name = candidate?.name || candidate?.Name || candidate?.fullName || 'Asosiy sklad'
+			if (id || name) {
+				return { id: String(id || '09fda8f3-6098-11f0-9fee-b48c9d79c2ce'), name }
+			}
+		}
+
+		return {
+			id: '09fda8f3-6098-11f0-9fee-b48c9d79c2ce',
+			name: 'Asosiy sklad',
+		}
+	}
 
 	const handleConfirmOrder = async paymentType => {
 		if (!basket.length) {
@@ -56,6 +86,8 @@ const Basket = () => {
 				}
 			)
 		}
+
+		const tokenStock = getTokenStock()
 
 		const products = basket.map(item => {
 			const productId =
@@ -97,8 +129,8 @@ const Basket = () => {
 				quantities: [
 					{
 						stock: {
-							id: '09fda8f3-6098-11f0-9fee-b48c9d79c2ce',
-							name: 'Asosiy sklad',
+							id: tokenStock.id,
+							name: tokenStock.name,
 						},
 
 						quantity,
@@ -149,6 +181,7 @@ const Basket = () => {
 		const orderData = {
 			userId: String(getUserId() || ''),
 			UUID: generateUuidFallback(),
+			stock: tokenStock,
 			comment: comment?.trim() || '',
 			saleType: 'sum',
 			products,
