@@ -1,13 +1,6 @@
 import { decodeJwtPayload } from './auth'
 import { getUsdToUzsRate } from './appConfig'
 
-// Confirmed against a real product's own UZS price entries (e.g. "MUNIS FARA") — this
-// backend's actual so'm currency GUID. Used as the display currency.id for a USD-only
-// product's UZS-converted price, which otherwise has no real UZS price entry to draw an
-// id from and would submit an empty currency.id (the backend 400s: "currency.id" — see
-// resolveDisplayPrice's USD-fallback branch below).
-const UZS_CURRENCY_ID = '09fda8f8-6098-11f0-9fee-b48c9d79c2ce'
-
 export function getTokenCurrencyId() {
   const token = localStorage.getItem('token') || ''
   const payload = decodeJwtPayload(token)
@@ -30,6 +23,8 @@ export function getTokenCurrencyId() {
     jti?.currency,
     jti?.Currency,
     jti?.currencyInfo,
+    jti?.UZS,
+    jti?.uzs,
     payload?.currencyId,
     payload?.currency_id,
     payload?.currencyID,
@@ -53,18 +48,7 @@ export function getTokenCurrencyId() {
     if (id) return String(id)
   }
 
-  const name = String(
-    payload?.currency?.name ||
-      payload?.Currency?.name ||
-      payload?.currencyInfo?.name ||
-      jti?.currency?.name ||
-      jti?.currencyInfo?.name ||
-      ''
-  ).trim().toUpperCase()
-
-  return name === 'UZS' || name === 'SO\'M' || name === 'SOM' || name === 'SUM'
-    ? UZS_CURRENCY_ID
-    : UZS_CURRENCY_ID
+  return ''
 }
 
 // customer's assigned price tier (chakana/ulgurji/...) — decoded live from the JWT's
@@ -152,9 +136,7 @@ export function resolveDisplayPrice(product) {
       price: Number(chosen?.price ?? 0),
       oldPrice: Number(chosen?.oldPrice ?? chosen?.price ?? 0),
       currency: {
-        // a UZS price entry with no currency.id of its own (seen in real product data)
-        // would otherwise submit blank and get the same 400 as the USD-fallback case
-        id: chosen?.currency?.id || chosen?.currency?.Id || UZS_CURRENCY_ID,
+        id: chosen?.currency?.id || chosen?.currency?.Id || getTokenCurrencyId(),
         name: chosen?.currency?.name || chosen?.currency?.Name || 'UZS',
       },
     }
@@ -175,7 +157,7 @@ export function resolveDisplayPrice(product) {
     return {
       price: Math.round(usdPrice * rate),
       oldPrice: Math.round(usdOldPrice * rate),
-      currency: { id: UZS_CURRENCY_ID, name: 'UZS' },
+      currency: { id: getTokenCurrencyId(), name: 'UZS' },
       order: {
         price: usdPrice,
         oldPrice: usdOldPrice,

@@ -174,10 +174,10 @@ function normalizeProduct(item, counts = {}, fallbackStock = { id: '', name: 'As
     currency: {
       name: item.currencyName || item.currency?.name || rawPriceFallback?.currency?.name || 'UZS',
       id:
+        getTokenCurrencyId() ||
         item.currencyId ||
         item.currency?.id ||
         rawPriceFallback?.currency?.id ||
-        getTokenCurrencyId() ||
         '',
     },
   };

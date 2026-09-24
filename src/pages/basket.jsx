@@ -139,9 +139,9 @@ const Basket = () => {
 						'UZS',
 
 					id:
+						getTokenCurrencyId() ||
 						item.currencyId ||
 						rawPriceFallback?.currency?.id ||
-						getTokenCurrencyId() ||
 						'',
 				},
 			}
