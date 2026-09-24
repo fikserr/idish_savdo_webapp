@@ -9,7 +9,7 @@ import PaymentModal from '../components/PaymentModal'
 import useAddBasket from '../hooks/useAddBasket'
 import useBasket from '../hooks/useBasket'
 import useOrder from '../hooks/useOrder'
-import { decodeJwtPayload, getUserId } from '../lib/auth'
+import { getTokenStock, getUserId } from '../lib/auth'
 import { getTokenCurrencyId, resolveDisplayPrice } from '../lib/pricing'
 
 const Basket = () => {
@@ -22,45 +22,6 @@ const Basket = () => {
 	const { basket, setBasket, clearBasket } = useBasket()
 	const { createOrder } = useOrder()
 	const { counts, updateQuantity } = useAddBasket()
-
-	const getTokenStock = () => {
-		const token = localStorage.getItem('token') || ''
-		const payload = decodeJwtPayload(token)
-		let jti = payload?.jti
-		if (typeof jti === 'string') {
-			try {
-				jti = JSON.parse(jti)
-			} catch {
-				jti = null
-			}
-		}
-
-		const candidates = [
-			payload?.stock,
-			payload?.warehouse,
-			payload?.sklad,
-			payload?.stockInfo,
-			payload?.stockData,
-			jti?.stock,
-			jti?.warehouse,
-			jti?.sklad,
-			jti?.stockInfo,
-		]
-
-		for (const candidate of candidates) {
-			if (!candidate) continue
-			const id = candidate?.id || candidate?.Id || candidate?.ID || ''
-			const name = candidate?.name || candidate?.Name || candidate?.fullName || 'Asosiy sklad'
-			if (id || name) {
-				return { id: String(id || '09fda8f3-6098-11f0-9fee-b48c9d79c2ce'), name }
-			}
-		}
-
-		return {
-			id: '09fda8f3-6098-11f0-9fee-b48c9d79c2ce',
-			name: 'Asosiy sklad',
-		}
-	}
 
 	const handleConfirmOrder = async paymentType => {
 		if (!basket.length) {

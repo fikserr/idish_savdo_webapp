@@ -1,6 +1,6 @@
 import { useState } from "react";
 import api from "../lib/api";
-import { getUserId, decodeJwtPayload } from "../lib/auth";
+import { getTokenStock, getUserId, decodeJwtPayload } from "../lib/auth";
 import { getTokenCurrencyId, resolveDisplayPrice } from "../lib/pricing";
 import { getUsdToUzsRate } from "../lib/appConfig";
 
@@ -67,7 +67,7 @@ function normalizeTokenOrderContext() {
   const payload = decodeJwtPayload(token);
 
   const customer = findNestedValue(payload, ['customer', 'client', 'contractor']) || {};
-  const stock = findNestedValue(payload, ['stock', 'warehouse', 'sklad']) || {};
+  const stock = getTokenStock();
   const contractor = findNestedValue(payload, ['contractor', 'customer', 'client']) || customer || {};
   const object =
     findNestedValue(payload, ['object', 'pointOfSale', 'salesPoint', 'pointOfsale', 'pointOfSaleInfo', 'tochkaProdaji']) ||

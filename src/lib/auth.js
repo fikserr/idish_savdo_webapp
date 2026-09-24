@@ -54,4 +54,27 @@ export function getContractorId() {
   return id ? String(id) : null
 }
 
+export function getTokenStock() {
+  const token = localStorage.getItem('token') || ''
+  const payload = decodeJwtPayload(token)
+
+  let jti = payload?.jti
+  if (typeof jti === 'string') {
+    try {
+      jti = JSON.parse(jti)
+    } catch {
+      jti = null
+    }
+  }
+
+  const stock = jti?.stock || payload?.stock || payload?.warehouse || payload?.sklad
+  const id = stock?.id || stock?.Id || stock?.ID || ''
+  const name = stock?.name || stock?.Name || stock?.fullName || 'Asosiy sklad'
+
+  return {
+    id: id ? String(id) : '',
+    name,
+  }
+}
+
 export default { getTelegramUser, getUserId, getContractorId }
