@@ -1,6 +1,6 @@
 import { useState } from "react";
 import api from "../lib/api";
-import { getTokenStock, getUserId, decodeJwtPayload } from "../lib/auth";
+import { getTokenContractor, getTokenStock, getUserId, decodeJwtPayload } from "../lib/auth";
 import { getTokenCurrencyId, resolveDisplayPrice } from "../lib/pricing";
 import { getUsdToUzsRate } from "../lib/appConfig";
 
@@ -66,17 +66,14 @@ function normalizeTokenOrderContext() {
   const token = localStorage.getItem('token') || '';
   const payload = decodeJwtPayload(token);
 
-  const customer = findNestedValue(payload, ['customer', 'client', 'contractor']) || {};
+  const customer = getTokenContractor();
   const stock = getTokenStock();
-  const contractor = findNestedValue(payload, ['contractor', 'customer', 'client']) || customer || {};
+  const contractor = customer;
   const object =
     findNestedValue(payload, ['object', 'pointOfSale', 'salesPoint', 'pointOfsale', 'pointOfSaleInfo', 'tochkaProdaji']) ||
     { id: '', name: '' };
   const priceType = findNestedValue(payload, ['priceType', 'pricingType']) || { id: '', name: '' };
   const rate = safeNumber(findNestedValue(payload, ['rate', 'defaultRate']) ?? getUsdToUzsRate(), getUsdToUzsRate());
-
-  const customerId =
-    customer?.id || customer?.Id || customer?.ID || contractor?.id || contractor?.Id || '';
 
   return {
     userId: String(getUserId() || payload.userId || payload.sub || ''),
@@ -85,8 +82,8 @@ function normalizeTokenOrderContext() {
       name: stock.name || stock.Name || 'Asosiy sklad',
     },
     contractor: {
-      id: contractor.id || contractor.Id || contractor.ID || customerId || '',
-      name: contractor.name || contractor.fullName || contractor.Name || customer.name || customer.fullName || 'Kundalik',
+      id: contractor.id || '',
+      name: contractor.name || 'Kundalik',
     },
     object: {
       id: object.id || object.Id || object.ID || '',

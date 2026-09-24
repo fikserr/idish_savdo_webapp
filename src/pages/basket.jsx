@@ -9,7 +9,7 @@ import PaymentModal from '../components/PaymentModal'
 import useAddBasket from '../hooks/useAddBasket'
 import useBasket from '../hooks/useBasket'
 import useOrder from '../hooks/useOrder'
-import { getTokenStock, getUserId } from '../lib/auth'
+import { getTokenContractor, getTokenStock, getUserId } from '../lib/auth'
 import { getTokenCurrencyId, resolveDisplayPrice } from '../lib/pricing'
 
 const Basket = () => {
@@ -58,6 +58,7 @@ const Basket = () => {
 		}
 
 		const tokenStock = getTokenStock()
+		const tokenContractor = getTokenContractor()
 
 		const products = basket.map(item => {
 			const productId =
@@ -152,6 +153,7 @@ const Basket = () => {
 			userId: String(getUserId() || ''),
 			UUID: generateUuidFallback(),
 			stock: tokenStock,
+			contractor: tokenContractor,
 			comment: comment?.trim() || '',
 			saleType: 'sum',
 			products,

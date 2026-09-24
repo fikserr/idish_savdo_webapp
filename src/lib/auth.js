@@ -54,6 +54,29 @@ export function getContractorId() {
   return id ? String(id) : null
 }
 
+export function getTokenContractor() {
+  const token = localStorage.getItem('token') || ''
+  const payload = decodeJwtPayload(token)
+
+  let jti = payload?.jti
+  if (typeof jti === 'string') {
+    try {
+      jti = JSON.parse(jti)
+    } catch {
+      jti = null
+    }
+  }
+
+  const customer = jti?.customer || jti?.contractor || payload?.customer || payload?.contractor || payload?.client
+  const id = customer?.id || customer?.Id || customer?.ID || ''
+  const name = customer?.name || customer?.Name || customer?.fullName || 'Kundalik'
+
+  return {
+    id: id ? String(id) : '',
+    name,
+  }
+}
+
 export function getTokenStock() {
   const token = localStorage.getItem('token') || ''
   const payload = decodeJwtPayload(token)
@@ -77,4 +100,4 @@ export function getTokenStock() {
   }
 }
 
-export default { getTelegramUser, getUserId, getContractorId }
+export default { getTelegramUser, getUserId, getContractorId, getTokenContractor }
