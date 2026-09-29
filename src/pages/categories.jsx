@@ -19,7 +19,7 @@ const Categories = () => {
 		categories,
 		loading: categoriesLoading,
 		error: categoriesError,
-	} = useCategories(userId, 1, 10)
+	} = useCategories(userId, 1, 200)
 	const isLoading = categoriesLoading || registered === undefined
 
 	const [cat, setCat] = useState([])
