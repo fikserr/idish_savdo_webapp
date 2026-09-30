@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { useState } from 'react'
+import { BsBagHeart } from 'react-icons/bs'
 import { toast } from 'sonner'
-import emptyBasket from '../assets/empty.mp4.gif'
 import noImage from '../assets/no-photo.jpg'
 import CommentModal from '../components/CommentModal'
 import ErrorModal from '../components/ErrorModal'
@@ -327,11 +327,13 @@ const Basket = () => {
 
             {basket.length === 0 ? (
                 <div className='soft-card mx-auto flex max-w-xl flex-col items-center justify-center gap-4 py-20 text-center'>
-                    <img
-                        src={emptyBasket}
-                        alt='Bo‘sh savat'
-                        className='h-48 w-48 object-contain'
-                    />
+                    <BsBagHeart className='text-5xl text-violet-600' />
+                    <h3 className='text-xl font-semibold text-slate-800 dark:text-slate-100'>
+                        Sizning savatingiz bo'sh.
+                    </h3>
+                    <p className='text-sm text-slate-600 dark:text-slate-300'>
+                        Mahsulotlarni tanlab, buyurtma berishni boshlang.
+                    </p>
                 </div>
             ) : (
                 <div className='space-y-4'>
