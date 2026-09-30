@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import emptyBasket from '../assets/empty.gif'
+import emptyBasket from '../assets/empty.mp4.gif'
 import noImage from '../assets/no-photo.jpg'
 import CommentModal from '../components/CommentModal'
 import ErrorModal from '../components/ErrorModal'
