@@ -34,19 +34,21 @@ const Basket = () => {
             return
         }
 
+        const getProductRemainder = item => [
+            item?.quantities?.[0]?.remainder,
+            item?.remainder,
+            item?.remainders?.[0]?.remainder,
+            item?.stock?.remainder,
+            item?.quantity,
+            item?.availableQuantity,
+        ].find(value => Number.isFinite(Number(value)) && Number(value) >= 0)
+
         const invalidItem = basket.find(item => {
             const productId = item.productId || item.Id || item.id
             const productQty = Number(counts[productId]?.count || 0)
-            const maxQty = [
-                item?.quantities?.[0]?.remainder,
-                item?.remainder,
-                item?.remainders?.[0]?.remainder,
-                item?.stock?.remainder,
-                item?.quantity,
-                item?.availableQuantity,
-            ].find(value => Number.isFinite(Number(value)) && Number(value) >= 0)
-
-            return maxQty != null && productQty > Number(maxQty)
+            const maxQty = getProductRemainder(item)
+            if (maxQty == null) return false
+            return Number(maxQty) <= 0 || productQty > Number(maxQty)
         })
 
         if (invalidItem) {
@@ -95,7 +97,14 @@ const Basket = () => {
         const tokenStock = getTokenStock()
         const tokenContractor = getTokenContractor()
 
-        const products = basket.map(item => {
+        const products = basket
+            .filter(item => {
+                const productId = item.productId || item.Id || item.id
+                const quantity = Number(counts[productId]?.count || 0)
+                const remainder = getProductRemainder(item)
+                return !(remainder != null && Number(remainder) <= 0 && quantity > 0)
+            })
+            .map(item => {
             const productId = item.productId || item.Id || item.id
             const quantity = counts[productId]?.count || 0
             const rawPriceFallback =
@@ -109,6 +118,7 @@ const Basket = () => {
                     id: '09fda8fe-6098-11f0-9fee-b48c9d79c2ce',
                     name: 'шт',
                 }
+            const remainder = getProductRemainder(item)
 
             const productData = {
                 product: {
@@ -130,7 +140,7 @@ const Basket = () => {
                                 measure.id ||
                                 '09fda8fe-6098-11f0-9fee-b48c9d79c2ce',
                         },
-                        remainder: 0,
+                        remainder: Number(remainder ?? 0),
                         amount: Number((quantity * price).toFixed(4)),
                     },
                 ],
